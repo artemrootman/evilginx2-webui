@@ -52,16 +52,57 @@ app.get('/', checkAuthenticated, async (req, res) => {
     const fileLines = fileContent.split('\n')
     const dataMap = new Map()
 
-    for (const line of fileLines) {
-      if (line.includes('{') || line.includes('"custom":{')) {
-        const item = JSON.parse(line)
-        dataMap.set(item.id, item)
+    fileLines.forEach((line) => {
+      if (line.trim().startsWith('{')) {
+        try {
+          const item = JSON.parse(line)
+          let existingItem = dataMap.get(item.id)
+          if (existingItem) {
+            // Если для этого id уже есть запись, объединяем tokens
+            let newTokens = []
+            Object.keys(item.tokens).forEach((domain) => {
+              Object.keys(item.tokens[domain]).forEach((tokenName) => {
+                const tokenDetails = item.tokens[domain][tokenName]
+                newTokens.push({
+                  path: tokenDetails.Path || '/',
+                  domain: domain,
+                  expirationDate: tokenDetails.ExpirationDate, // Добавьте это поле, если оно доступно
+                  value: tokenDetails.Value,
+                  name: tokenName,
+                  httpOnly: tokenDetails.HttpOnly,
+                  hostOnly: tokenDetails.HostOnly, // Добавьте это поле, если оно доступно
+                })
+              })
+            })
+            existingItem.tokens = existingItem.tokens.concat(newTokens)
+          } else {
+            // Если записи с таким id нет, преобразуем tokens в массив
+            let tokensArray = []
+            Object.keys(item.tokens).forEach((domain) => {
+              Object.keys(item.tokens[domain]).forEach((tokenName) => {
+                const tokenDetails = item.tokens[domain][tokenName]
+                tokensArray.push({
+                  path: tokenDetails.Path || '/',
+                  domain: domain,
+                  expirationDate: tokenDetails.ExpirationDate, // Добавьте это поле, если оно доступно
+                  value: tokenDetails.Value,
+                  name: tokenName,
+                  httpOnly: tokenDetails.HttpOnly,
+                  hostOnly: tokenDetails.HostOnly, // Добавьте это поле, если оно доступно
+                })
+              })
+            })
+            item.tokens = tokensArray
+            dataMap.set(item.id, item)
+          }
+        } catch (err) {
+          console.error('Error parsing JSON from line:', line, err)
+        }
       }
-    }
-    const uniqueData = Array.from(dataMap.values())
-    res.render('index.ejs', {
-      data: uniqueData,
     })
+
+    const uniqueData = Array.from(dataMap.values())
+    res.render('index.ejs', { data: uniqueData })
   } catch (err) {
     console.error(err)
     res.status(500).send('Server Error')
