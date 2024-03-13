@@ -58,7 +58,6 @@ app.get('/', checkAuthenticated, async (req, res) => {
           const item = JSON.parse(line)
           let existingItem = dataMap.get(item.id)
           if (existingItem) {
-            // Если для этого id уже есть запись, объединяем tokens
             let newTokens = []
             Object.keys(item.tokens).forEach((domain) => {
               Object.keys(item.tokens[domain]).forEach((tokenName) => {
@@ -66,17 +65,16 @@ app.get('/', checkAuthenticated, async (req, res) => {
                 newTokens.push({
                   path: tokenDetails.Path || '/',
                   domain: domain,
-                  expirationDate: tokenDetails.ExpirationDate, // Добавьте это поле, если оно доступно
+                  expirationDate: tokenDetails.ExpirationDate,
                   value: tokenDetails.Value,
                   name: tokenName,
                   httpOnly: tokenDetails.HttpOnly,
-                  hostOnly: tokenDetails.HostOnly, // Добавьте это поле, если оно доступно
+                  hostOnly: tokenDetails.HostOnly,
                 })
               })
             })
             existingItem.tokens = existingItem.tokens.concat(newTokens)
           } else {
-            // Если записи с таким id нет, преобразуем tokens в массив
             let tokensArray = []
             Object.keys(item.tokens).forEach((domain) => {
               Object.keys(item.tokens[domain]).forEach((tokenName) => {
@@ -84,11 +82,11 @@ app.get('/', checkAuthenticated, async (req, res) => {
                 tokensArray.push({
                   path: tokenDetails.Path || '/',
                   domain: domain,
-                  expirationDate: tokenDetails.ExpirationDate, // Добавьте это поле, если оно доступно
+                  expirationDate: tokenDetails.ExpirationDate,
                   value: tokenDetails.Value,
                   name: tokenName,
                   httpOnly: tokenDetails.HttpOnly,
-                  hostOnly: tokenDetails.HostOnly, // Добавьте это поле, если оно доступно
+                  hostOnly: tokenDetails.HostOnly,
                 })
               })
             })
